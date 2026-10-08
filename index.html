@@ -2,20 +2,45 @@
 <html lang="en">
 <head>
 <script>
-  const originalReplace = window.location.replace;
-  window.location.replace = function(url) {
-    if (url === 'about:blank' || url.includes('blank')) {
-      console.warn("Blocked an attempt to redirect to about:blank!");
-      return;
-    }
-    return originalReplace.apply(this, arguments);
-  };
-  Object.defineProperty(window, 'onbeforeunload', {
-    configurable: false,
-    writable: false,
-    value: function() {}
-  });
+  (function() {
+    const blockRedirect = function(url) {
+      console.warn("Blocked redirect attempt to:", url);
+      return false; 
+    };
+    
+    try {
+      window.location.replace = blockRedirect;
+      window.location.assign = blockRedirect;
+    } catch(e) {}
+    try {
+      Object.defineProperty(window, 'location', {
+        writable: false,
+        configurable: false,
+        value: Object.create(window.location, {
+          replace: { value: blockRedirect, writable: false },
+          assign: { value: blockRedirect, writable: false },
+          href: {
+            get: () => window.location.href,
+            set: blockRedirect
+          }
+        })
+      });
+    } catch(e) {}
+    try {
+      Object.defineProperty(window, 'top', {
+        get: function() { return window; }
+      });
+      Object.defineProperty(window, 'parent', {
+        get: function() { return window; }
+      });
+    } catch(e) {}
+    try {
+      Object.defineProperty(window, 'onbeforeunload', { value: function() {}, writable: false });
+      Object.defineProperty(window, 'onunload', { value: function() {}, writable: false });
+    } catch(e) {}
+  })();
 </script>
+
 <base href="./">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
